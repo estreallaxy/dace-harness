@@ -3,10 +3,10 @@
   "scope": "current source, local Windows, official local task-ID dataset available",
   "python": "3.12.10",
   "os": "Windows",
-  "tests": 326,
+  "tests": 332,
   "skipped": 0,
   "status": "PASS",
-  "seconds": 268.041,
+  "seconds": 359.296,
   "formal_benchmark_result": false,
   "note": "Controlled/native-fixture tests are not new real-model benchmark runs.",
   "clean_public_checkout": {
@@ -14,6 +14,7 @@
     "skipped": 3,
     "seconds": 265.286,
     "status": "PASS",
-    "skip_reason": "Official Terminal-Bench dataset intentionally not included in public source."
+    "skip_reason": "Official Terminal-Bench dataset intentionally not included in public source.",
+    "tested_source": "ceb47b4, before the persistent-pool additions; see current GitHub CI for latest clean-source coverage"
   }
 }

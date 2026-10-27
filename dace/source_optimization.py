@@ -321,11 +321,13 @@ def run_optimization(plan,output,agent=None):
                 raise ValueError('Diagnostic result lacks its own committed proposal')
             batch = decode_proposal(payloads[0],parent,plan['mechanism_cap'],plan['action_cap'],plan.get('level')!='C0')
             batch_id = state.register(batch) if state is not None else None
-            ranked = state.ranked_actions(batch_id) if state is not None else batch.ranked_actions()
+            ranked = (state.scheduled_actions(batch_id) if state is not None else
+                      [(None,a,score) for a,score in batch.ranked_actions()])
             eligible,feedback = [],[]
-            for j,(action,score) in enumerate(ranked[:plan['intervention_cap']]):
+            for j,(action_batch_id,action,score) in enumerate(ranked[:plan['intervention_cap']]):
                 stage = prefix+f'/confirm-{j:03}'
-                predictions = batch.predictions_for(action.id)
+                action_batch = state.batches[action_batch_id]['batch'] if state is not None else batch
+                predictions = action_batch.predictions_for(action.id)
                 if plan.get('level')=='C0':
                     # Operational control only: not a proposed root mechanism,
                     # and none of its attribution fields reach the C0 optimizer.
@@ -343,7 +345,7 @@ def run_optimization(plan,output,agent=None):
                     return finish('OPTIMIZATION_UNRESOLVED',failed_stage=stage)
                 claims = result['evidence'].get('claims',[])
                 if state is not None:
-                    projected = state.observe(batch_id,action.id,output/stage/'evidence.jsonl')
+                    projected = state.observe(action_batch_id,action.id,output/stage/'evidence.jsonl')
                     if projected['claims']:
                         feedback.append(projected)
                 elif claims:

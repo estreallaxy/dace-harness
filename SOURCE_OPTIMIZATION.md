@@ -39,6 +39,8 @@ Path(plan_path).write_text(json.dumps(plan, indent=2), encoding='utf-8')
 
 不传 `level` 保持v2兼容路径。v3可选 `C0/C1/C2/C3/C4/C5/CONTRIBUTION_ONLY`。C0不生成机制；每级都保留基本验证结果用于反思。C1有持久竞争空间，C2读取故障声明，C3独立读取故障/贡献，C4才生成联合目标，C5再按明确冻结的预测分歧调度。机制状态按父版本和完整假设revision隔离，来源相容本身不能提高优先级；只有实际判别证据支持的预测才得到该优先级。溢出机制归档而不删除历史，晋级使旧父版本记录和目标过期。
 
+机制 revision 同时绑定该假设的全部动作 Artifact，不能因动作名称相同就把旧补丁证据转给新代码。原生调度器在同一父版本下考虑所有仍活跃提案；下一轮没有新提案时，仍可在新的预定确认槽位上检验既有提案。每个动作保留其原始 batch 的冻结预测，不补造跨 batch 预测。同一 Artifact 本轮只调度一次，先比较冻结预测分歧，再按提案新旧和动作 ID 确定顺序。C0只使用当轮动作；已归档及旧父版本动作不参与调度。这是同父版本提案保留，不是在未部署候选上继续扩展子链。
+
 ```powershell
 python tools/run_source_optimization.py --plan D:/path/to/plan.json --output D:/path/to/run
 ```

@@ -310,6 +310,43 @@ class SourceOptimizationTests(unittest.TestCase):
         self.assertEqual(claim['bridge'],'UNBRIDGED')
         self.assertNotIn('next_targets',claim)
 
+    def test_native_retained_action_survives_empty_proposal_and_mid_round_recovery(self):
+        rows = copy.deepcopy(self.rounds)
+        for row in rows:
+            row['selection'] = row['selection'][:1]
+            row['families'] = {row['selection'][0]:'primary'}
+        self.plan = make_optimization_plan(self.parent,rows,self.dataset,['fixture-runner'],
+            'fixture-model',self.study,{'schema':'fixture'},intervention_cap=1,action_cap=1,level='C5')
+        usage = {'cost':.001,'prompt_tokens':10,'completion_tokens':20}
+        self.llm.complete.side_effect = [
+            (json.dumps(candidate('retained-edit')),usage),
+            (json.dumps({'actions':[],'mechanisms':[]}),usage)]
+        append = Ledger.append
+        def interrupt(ledger,kind,**payload):
+            if kind=='OPTIMIZATION_STAGE_FINISHED' and payload['stage']=='round-001/diagnostic':
+                raise KeyboardInterrupt('controlled recovery before retained-action scheduling')
+            return append(ledger,kind,**payload)
+        with patch.object(Ledger,'append',new=interrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                self.run_pipeline()
+        result = self.run_pipeline()
+        self.assertEqual(result['status'],'OPTIMIZATION_COMPLETE')
+        self.assertEqual(result['rounds'][1]['proposal_status'],'NO_CHANGE_PROPOSED')
+        self.assertEqual([r['confirmed_actions'] for r in result['rounds']],[1,1])
+        self.assertEqual(result['deployed_artifact']['version'],self.parent.version)
+        records = list(result['native_state']['records'].values())
+        self.assertEqual(len(records),1)
+        self.assertEqual(len(records[0]['responses']),2)
+        first = {version for task,version in self.calls if task=='c0'}
+        second = {version for task,version in self.calls if task=='c1'}
+        self.assertEqual(first,second)
+        self.assertEqual(len(first),2)
+        self.assertEqual(len(self.calls),10)
+        self.assertEqual(self.llm.complete.call_count,2)
+        call_count = len(self.calls)
+        self.run_pipeline()
+        self.assertEqual(len(self.calls),call_count)
+
     def test_native_c0_executes_without_building_mechanism_space(self):
         self.plan.update(schema='dace-source-optimization/v3',level='C0')
         original = self.propose

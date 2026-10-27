@@ -62,11 +62,15 @@ class SourceState:
         if self.features['mechanisms']:
             for m in batch.mechanisms:
                 # The full frozen hypothesis/response specification is a revision.
-                revision = digest({'parent':self.parent,'hypothesis':asdict(m)})
+                # Action IDs are local labels, not immutable interventions.
+                # Bind every response prediction to its exact source edit.
+                revision = digest({'parent':self.parent,'hypothesis':asdict(m),
+                    'actions':[asdict(a) for a in batch.actions]})
                 mapping[m.id] = revision
                 if revision not in self.records:
                     self.records[revision] = {'revision':revision,'parent':self.parent,
                         'hypothesis':asdict(m),'status':'ACTIVE','introduced':self.sequence,
+                        'action_versions':{a.id:a.artifact.version for a in batch.actions},
                         'responses':{},'source_views':{},'discriminations':[]}
             active = [r for r in self.records.values() if r['status']=='ACTIVE']
             def priority(r):
@@ -80,6 +84,33 @@ class SourceState:
                     record.update(status='ARCHIVED',archive_reason='ACTIVE_CAP_PREDECLARED_PRIORITY')
         self.batches[identity] = {'batch':batch,'mechanisms':mapping}
         return identity
+
+    def scheduled_actions(self,batch_id):
+        """Compete active same-parent proposals across rounds without rebinding.
+
+        Each action retains its original batch's prediction contract. Missing
+        cross-batch predictions are never invented. Identical artifacts are
+        scheduled once, preferring disagreement, then the latest proposal.
+        C0 has no persistent mechanism pool and uses the current batch only.
+        """
+        if self.batches[batch_id]['batch'].parent!=self.parent:
+            raise ValueError('Stale action pool cannot target the current parent')
+        candidates = []
+        for index,(identity,item) in enumerate(self.batches.items()):
+            if item['batch'].parent!=self.parent:
+                continue
+            if not self.features['mechanisms'] and identity!=batch_id:
+                continue
+            for action,score in self.ranked_actions(identity):
+                candidates.append((identity,action,score,index))
+        candidates.sort(key=lambda row:(-row[2],-row[3],row[1].id,row[0]))
+        seen,result = set(),[]
+        for identity,action,score,_ in candidates:
+            if action.artifact.version in seen:
+                continue
+            seen.add(action.artifact.version)
+            result.append((identity,action,score))
+        return result
 
     def ranked_actions(self,batch_id):
         item = self.batches[batch_id]

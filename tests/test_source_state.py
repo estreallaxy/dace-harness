@@ -53,6 +53,61 @@ class NativeStateTests(unittest.TestCase):
         self.assertEqual(state.register(self.batch),first)
         self.assertEqual(state.snapshot(),before)
 
+    def test_same_named_predictions_for_different_edits_are_distinct_revisions(self):
+        state = SourceState(self.parent,cap=4)
+        original = state.register(self.batch)
+        self.observe(state,original)
+        payload = proposal()
+        payload['actions'][0]['edits']['response_code'] = 'def transform(value):\n    return value.lstrip()\n'
+        changed = state.register(decode_proposal(payload,self.parent))
+        self.assertFalse(set(state.batches[original]['mechanisms'].values()) &
+                         set(state.batches[changed]['mechanisms'].values()))
+        for revision in state.batches[changed]['mechanisms'].values():
+            self.assertEqual(state.records[revision]['responses'],{})
+            self.assertEqual(state.records[revision]['source_views'],{})
+        self.assertEqual(len(state.records),4)
+
+    def test_active_prior_batch_remains_schedulable_when_new_round_has_no_proposal(self):
+        state = SourceState(self.parent)
+        original = state.register(self.batch)
+        empty = state.register(decode_proposal({'actions':[],'mechanisms':[]},self.parent))
+        scheduled = state.scheduled_actions(empty)
+        self.assertEqual([(b,a.id,n) for b,a,n in scheduled],[(original,'strip',1),(original,'suffix',0)])
+        self.assertEqual(state.batches[scheduled[0][0]]['batch'].predictions_for('strip'),
+                         self.batch.predictions_for('strip'))
+
+    def test_global_scheduler_deduplicates_artifacts_without_merging_hypotheses(self):
+        state = SourceState(self.parent,cap=4)
+        original = state.register(self.batch)
+        payload = proposal()
+        for mechanism in payload['mechanisms']:
+            mechanism['explanation'] += ' alternative hypothesis revision'
+        latest = state.register(decode_proposal(payload,self.parent))
+        scheduled = state.scheduled_actions(latest)
+        self.assertEqual(len(scheduled),2)
+        self.assertEqual({b for b,_,_ in scheduled},{latest})
+        self.assertNotEqual(state.batches[original]['mechanisms'],state.batches[latest]['mechanisms'])
+
+    def test_archived_and_stale_proposals_cannot_consume_new_interventions(self):
+        state = SourceState(self.parent,cap=2)
+        state.register(self.batch)
+        payload = proposal()
+        for mechanism in payload['mechanisms']:
+            mechanism['explanation'] += ' replacement'
+        latest = state.register(decode_proposal(payload,self.parent))
+        self.assertEqual({b for b,_,_ in state.scheduled_actions(latest)},{latest})
+        state.deploy(self.batch.actions[0].artifact)
+        with self.assertRaisesRegex(ValueError,'Stale'):
+            state.scheduled_actions(latest)
+
+    def test_c0_never_retains_actions_through_a_mechanism_pool(self):
+        state = SourceState(self.parent,level='C0')
+        payload = proposal()
+        payload['mechanisms'] = []
+        state.register(decode_proposal(payload,self.parent,mechanisms_required=False))
+        empty = state.register(decode_proposal({'actions':[],'mechanisms':[]},self.parent,mechanisms_required=False))
+        self.assertEqual(state.scheduled_actions(empty),[])
+
     def test_compatibility_alone_does_not_raise_mechanism_priority(self):
         state = SourceState(self.parent,cap=2)
         self.observe(state,state.register(self.batch))

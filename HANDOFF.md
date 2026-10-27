@@ -8,6 +8,7 @@
 - Durable source diagnosis/proposal, paired confirmation, independent selection, global multi-round budget: `source_diagnostics`, `source_confirmation`, `source_selection`, `source_optimization`.
 - Statistical contracts: immutable task-level exact binomial fixed-look intervals, alpha allocation, missing-data handling, legacy-ID preservation.
 - Native v3: persistent versioned CMVS, bounded active revisions with archived history, own/foreign response separation, stale parent invalidation, projected C0–C5/Contribution-only feedback and typed proposed joint targets.
+- Same-parent active proposal scheduling across rounds: original action/prediction bindings are retained, identical artifacts are scheduled once, and C0 retains no mechanism-backed action pool. This does not implement descendant search from undeployed candidates.
 - Optional blind EVAL checkpoints: `eval_tasks` in a v3 plan. EVAL data never enters Coding Agent context; evaluation and optimization budgets are reported separately.
 - Offline native report export: `tools/report_native_run.py`; exports `curve.csv`, `stages.csv`, `report.json` from verified child receipts, without task reruns or duplicate monetary accounting.
 - Native E2/E3 suite preparation: `tools/prepare_native_suite.py` freezes common task roles, blind EVAL and deduplicated conditions; `tools/run_native_suite.py` explicitly executes prepared plans after validating every plan. See `NATIVE_EXPERIMENTS.md`.
