@@ -1,4 +1,5 @@
 from tests.support import test_temp_dir
+import os
 import sys
 import tempfile
 import unittest
@@ -22,9 +23,10 @@ class RuntimeLockTests(unittest.TestCase):
         script.write_text('# runner',encoding='utf-8')
         runtime = self.root/'runtime'
         runtime.mkdir()
-        self.harbor = runtime/'harbor.exe'
+        self.harbor = runtime/('harbor.exe' if os.name=='nt' else 'harbor')
         self.harbor.write_bytes(b'launcher')
-        (runtime/'python.exe').write_bytes(b'python-runtime')
+        self.harbor.chmod(0o700)
+        (runtime/('python.exe' if os.name=='nt' else 'python')).write_bytes(b'python-runtime')
         self.command = [sys.executable,str(script),'--harbor',str(self.harbor),'--max-turns','8']
         self.dataset = self.root/'dataset'
         task = self.dataset/'task'
