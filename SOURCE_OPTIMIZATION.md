@@ -41,6 +41,8 @@ Path(plan_path).write_text(json.dumps(plan, indent=2), encoding='utf-8')
 
 机制 revision 同时绑定该假设的全部动作 Artifact，不能因动作名称相同就把旧补丁证据转给新代码。原生调度器在同一父版本下考虑所有仍活跃提案；下一轮没有新提案时，仍可在新的预定确认槽位上检验既有提案。每个动作保留其原始 batch 的冻结预测，不补造跨 batch 预测。同一 Artifact 本轮只调度一次，先比较冻结预测分歧，再按提案新旧和动作 ID 确定顺序。C0只使用当轮动作；已归档及旧父版本动作不参与调度。这是同父版本提案保留，不是在未部署候选上继续扩展子链。
 
+C5 的实际判别记录覆盖冻结的干预边界和中介谓词：同一族、同一字段的两个相反预测分别达到 `CONSISTENT` 和 `CONTRADICTED` 时才记录支持/冲突。不能从另一谓词族借用状态，也不能把经验匹配或聚合标签作为该字段的统计证据。记录按固定字段顺序生成，以保证跨进程检查点重建。
+
 ```powershell
 python tools/run_source_optimization.py --plan D:/path/to/plan.json --output D:/path/to/run
 ```

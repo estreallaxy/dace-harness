@@ -219,6 +219,59 @@ class NativeStateTests(unittest.TestCase):
         snapshot['records'].clear()
         self.assertEqual(len(state.records),2)
 
+    def mediator_proof(self):
+        payload = proposal()
+        payload['mechanisms'][1]['outcomes']['strip']['mediator']['command_batch_valid'] = False
+        self.batch = decode_proposal(payload,self.parent)
+        proof = self.proof()
+        for claim in proof['feedback']['claims']:
+            status = 'CONSISTENT' if claim['mechanism']=='format' else 'CONTRADICTED'
+            claim['predicate_evidence'] = {'mediator':{'predicates':{
+                'command_batch_valid':{'status':status}}}}
+        return proof
+
+    def test_c5_retains_discrimination_in_frozen_mediator_predictions(self):
+        proof = self.mediator_proof()
+        state = SourceState(self.parent)
+        identity = state.register(self.batch)
+        with patch('dace.source_state.confirmation_feedback',return_value=proof):
+            state.observe(identity,'strip','fixture.jsonl')
+        rows = [row for record in state.records.values() for row in record['discriminations']]
+        self.assertEqual(len(rows),2)
+        self.assertEqual({row['family'] for row in rows},{'mediator'})
+        self.assertEqual({row['field'] for row in rows},{'command_batch_valid'})
+        self.assertEqual({row['status'] for row in rows},{'PREDICTION_SUPPORTED','PREDICTION_CONFLICT'})
+
+    def test_discrimination_cannot_borrow_status_from_another_predicate_family(self):
+        proof = self.mediator_proof()
+        for claim in proof['feedback']['claims']:
+            claim['predicate_evidence'] = {'boundary':claim['predicate_evidence']['mediator']}
+        state = SourceState(self.parent)
+        identity = state.register(self.batch)
+        with patch('dace.source_state.confirmation_feedback',return_value=proof):
+            state.observe(identity,'strip','fixture.jsonl')
+        self.assertTrue(all(not record['discriminations'] for record in state.records.values()))
+
+    def test_discriminator_field_order_is_stable_for_checkpoint_reconstruction(self):
+        payload = proposal()
+        for mechanism in payload['mechanisms']:
+            value = mechanism['id']=='format'
+            mechanism['outcomes']['strip']['mediator'] = {
+                'command_count_preserved':value,'command_batch_valid':value}
+        self.batch = decode_proposal(payload,self.parent)
+        proof = self.proof()
+        for claim in proof['feedback']['claims']:
+            status = 'CONSISTENT' if claim['mechanism']=='format' else 'CONTRADICTED'
+            claim['predicate_evidence'] = {'mediator':{'predicates':{
+                field:{'status':status} for field in ('command_count_preserved','command_batch_valid')}}}
+        state = SourceState(self.parent)
+        identity = state.register(self.batch)
+        with patch('dace.source_state.confirmation_feedback',return_value=proof):
+            state.observe(identity,'strip','fixture.jsonl')
+        for record in state.records.values():
+            self.assertEqual([row['field'] for row in record['discriminations']],
+                             ['command_batch_valid','command_count_preserved'])
+
 
 if __name__=='__main__':
     unittest.main()

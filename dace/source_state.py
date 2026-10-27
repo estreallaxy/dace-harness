@@ -199,22 +199,26 @@ class SourceState:
 
     def _discriminate(self,item,action_id,feedback,contract_id):
         from itertools import combinations
-        predictions = {p.mechanism:dict(p.intervention_boundary) for p in item['batch'].predictions_for(action_id)}
+        predictions = {p.mechanism:{'boundary':dict(p.intervention_boundary),'mediator':dict(p.mediator)}
+                       for p in item['batch'].predictions_for(action_id)}
         claims = {c['mechanism']:c for c in feedback['claims']}
         for left,right in combinations(sorted(predictions),2):
-            for field in predictions[left].keys() & predictions[right].keys():
-                if predictions[left][field]==predictions[right][field]:
-                    continue
-                states = [claims[m].get('predicate_evidence',{}).get('boundary',{}).get('predicates',{}).get(field,{}).get('status')
-                          for m in (left,right)]
-                # Legacy one-trace compatibility cannot identify a stochastic discriminator.
-                if set(states)!={'CONSISTENT','CONTRADICTED'}:
-                    continue
-                for m,status in zip((left,right),states):
-                    record = self.records[item['mechanisms'][m]]
-                    record['discriminations'].append({'contract_id':contract_id,'field':field,
-                        'status':'PREDICTION_SUPPORTED' if status=='CONSISTENT' else 'PREDICTION_CONFLICT',
-                        'causal_identification':False})
+            for family in ('boundary','mediator'):
+                lhs,rhs = predictions[left][family],predictions[right][family]
+                for field in sorted(lhs.keys() & rhs.keys()):
+                    if lhs[field]==rhs[field]:
+                        continue
+                    states = [claims[m].get('predicate_evidence',{}).get(family,{}).get('predicates',{}).get(field,{}).get('status')
+                              for m in (left,right)]
+                    # Legacy matches, aggregate labels and cross-family evidence
+                    # cannot identify this frozen response discriminator.
+                    if set(states)!={'CONSISTENT','CONTRADICTED'}:
+                        continue
+                    for m,status in zip((left,right),states):
+                        record = self.records[item['mechanisms'][m]]
+                        record['discriminations'].append({'contract_id':contract_id,'family':family,'field':field,
+                            'status':'PREDICTION_SUPPORTED' if status=='CONSISTENT' else 'PREDICTION_CONFLICT',
+                            'causal_identification':False})
 
     def feedback_for(self,contract_id):
         cert = self.proofs[contract_id]
