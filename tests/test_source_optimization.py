@@ -49,7 +49,8 @@ class SourceOptimizationTests(unittest.TestCase):
         self.study = {'registry':str(registry_path),'id':'s','lineage':'run'}
         for name in ('dace.runtime_lock.verify_runtime_lock',
                      'dace.source_optimization.verify_runtime_lock',
-                     'dace.source_diagnostics.verify_runtime_lock'):
+                     'dace.source_diagnostics.verify_runtime_lock',
+                     'dace.source_factorial.verify_runtime_lock'):
             mock = patch(name,return_value='controlled-fixture')
             mock.start()
             self.addCleanup(mock.stop)
@@ -322,6 +323,83 @@ class SourceOptimizationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'changed on resume'):
             self.run_pipeline()
         self.assertEqual(self.llm.complete.call_count,2)
+
+    def enable_factorial(self,level='C5'):
+        for task in ('x0','x1'):
+            path = self.dataset/task
+            path.mkdir()
+            (path/'task.toml').write_text('schema_version="1.1"',encoding='utf-8')
+            (path/'instruction.md').write_text('Unique factorial '+task,encoding='utf-8')
+        roles = {'DIAG':['d0','d1'],'CONFIRM':['c0','c1','x0','x1'],
+            'SELECT':sum([row['selection'] for row in self.rounds],[]),'EVAL':['eval']}
+        with TaskRegistry(self.study['registry']) as registry:
+            registry.create_study('factorial',self.dataset,roles)
+            registry.create_lineage('factorial','run')
+        self.study['id'] = 'factorial'
+        rows = copy.deepcopy(self.rounds)
+        for row in rows:
+            row['selection'] = row['selection'][:1]
+            row['families'] = {row['selection'][0]:'primary'}
+        self.plan = make_optimization_plan(self.parent,rows,self.dataset,['fixture-runner'],
+            'fixture-model',self.study,{'schema':'fixture'},intervention_cap=1,action_cap=1,
+            level=level,factorial_tasks=[[['x0']],[['x1']]])
+        def propose_joint(messages,**kwargs):
+            index = self.llm.complete.call_count
+            payload = candidate('joint-'+str(index))
+            payload['actions'][0]['edits']['response_code'] = 'def transform(value):\n    return value.strip()\n'
+            return json.dumps(payload),{'cost':.001,'prompt_tokens':10,'completion_tokens':20}
+        self.llm.complete.side_effect = propose_joint
+
+    def test_native_joint_actions_run_all_four_controls_with_separate_budget_and_targets(self):
+        self.enable_factorial()
+        result = self.run_pipeline()
+        self.assertEqual(result['status'],'OPTIMIZATION_COMPLETE')
+        self.assertEqual(result['budget']['spent'],38)
+        self.assertEqual(result['budget']['total'],38)
+        self.assertEqual(len(self.calls),18)
+        self.assertEqual(len(result['native_state']['interactions']),2)
+        self.assertTrue(all(len(row['factorials'])==1 for row in result['rounds']))
+        self.assertIn('RESOLVE_FACTORIAL_EFFECT',[t['kind'] for t in result['native_state']['targets']])
+        context = json.loads(self.llm.complete.call_args.args[0][0]['content'].split('Context:\n',1)[1])
+        self.assertTrue(context['controller_state']['interactions'])
+        before = len(self.calls)
+        self.run_pipeline()
+        self.assertEqual(len(self.calls),before)
+
+    def test_uncoupled_dual_keeps_factorial_contribution_without_joint_source_targets(self):
+        self.enable_factorial('C3')
+        result = self.run_pipeline()
+        self.assertEqual(result['native_state']['targets'],[])
+        self.assertTrue(all('interaction' in entry for entry in result['native_state']['interactions'].values()))
+
+    def test_failure_only_hides_factorial_effect_estimates(self):
+        self.enable_factorial('C2')
+        result = self.run_pipeline()
+        self.assertTrue(all('interaction' not in entry for entry in result['native_state']['interactions'].values()))
+
+    def test_missing_factorial_arm_terminates_optimizer_without_promotion_or_retry(self):
+        self.enable_factorial()
+        original = self.runner.side_effect
+        def fail(runner,config,task,path,**kwargs):
+            if task.task_id=='x0' and len([t for t,v in self.calls if t=='x0'])==1:
+                raise RuntimeError('controlled missing arm')
+            return original(runner,config,task,path,**kwargs)
+        self.runner.side_effect = fail
+        result = self.run_pipeline()
+        self.assertEqual(result['status'],'OPTIMIZATION_UNRESOLVED')
+        self.assertEqual(result['failed_stage'],'round-000/factorial-000')
+        self.assertEqual(result['deployed_artifact']['version'],self.parent.version)
+        before = self.runner.call_count
+        self.run_pipeline()
+        self.assertEqual(self.runner.call_count,before)
+
+    def test_factorial_tasks_cannot_overlap_confirmation_or_evaluation(self):
+        self.enable_factorial()
+        self.plan['factorial_tasks'][0][0] = ['c0']
+        with self.assertRaisesRegex(ValueError,'distinct'):
+            self.run_pipeline()
+        self.runner.assert_not_called()
+        self.llm.complete.assert_not_called()
 
     def test_native_retained_action_survives_empty_proposal_and_mid_round_recovery(self):
         rows = copy.deepcopy(self.rounds)

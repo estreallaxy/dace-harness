@@ -27,6 +27,19 @@ from .source_usage import summarize_source_usage
 from .source_evaluation import make_evaluation_plan,run_evaluation
 from .task_registry import TaskRegistry
 from .coding_request import validate_coding_request
+from .source_factorial import make_factorial_plan,run_factorial
+
+
+def _factorial_slots(plan):
+    if 'factorial_tasks' not in plan:
+        return []
+    rows = plan['factorial_tasks']
+    if (plan.get('schema')!='dace-source-optimization/v3' or not isinstance(rows,list)
+            or len(rows)!=len(plan['rounds']) or any(not isinstance(row,list)
+            or len(row)!=plan['intervention_cap'] or any(not isinstance(ids,list) or not ids
+            or any(not isinstance(t,str) or not t for t in ids) for ids in row) for row in rows)):
+        raise ValueError('Freeze one distinct factorial CONFIRM task slot per round/intervention')
+    return [(i,j,ids) for i,row in enumerate(rows) for j,ids in enumerate(row)]
 
 
 def _allocations(plan):
@@ -41,6 +54,8 @@ def _allocations(plan):
         allocations['evaluation/baseline'] = len(plan['eval_tasks'])
         for i in range(len(plan['rounds'])):
             allocations[f'evaluation/round-{i:03}'] = len(plan['eval_tasks'])
+    for i,j,tasks in _factorial_slots(plan):
+        allocations[f'round-{i:03}/factorial-{j:03}'] = 4*len(tasks)
     return allocations
 
 
@@ -48,7 +63,8 @@ def make_optimization_plan(parent,rounds,dataset,command,model,study,runtime_loc
                            *,mechanism_cap=4,action_cap=4,intervention_cap=2,
                            alpha=.05,delta=0.,epsilon=0.,optimizer_model=None,
                            coding_max_tokens=12000,total_budget=None,
-                           predicate_protocol=PredicateProtocol(),level=None,eval_tasks=None,coding_request=None):
+                           predicate_protocol=PredicateProtocol(),level=None,eval_tasks=None,coding_request=None,
+                           factorial_tasks=None):
     """Round rows fix diagnostic IDs, per-action confirmation slots and selection families."""
     plan = {'schema':'dace-source-optimization/v1','parent':asdict(parent),
         'rounds':rounds,'dataset':str(Path(dataset).resolve()),'command':command,
@@ -71,9 +87,12 @@ def make_optimization_plan(parent,rounds,dataset,command,model,study,runtime_loc
         if level is None or not eval_tasks:
             raise ValueError('Blind evaluation requires a v3 native plan and nonempty fixed sample')
         plan['eval_tasks'] = list(eval_tasks)
+    if factorial_tasks is not None:
+        plan['factorial_tasks'] = factorial_tasks
     plan = json.loads(json.dumps(plan))
     tasks = [t for row in plan['rounds'] for t in
              row['diagnostic']+sum(row['confirmation'],[])+row['selection']]+plan.get('eval_tasks',[])
+    tasks += [task for i,j,ids in _factorial_slots(plan) for task in ids]
     plan['task_fingerprints'] = {t:task_fingerprint(Path(dataset)/t) for t in tasks}
     plan['total_budget'] = sum(_allocations(plan).values()) if total_budget is None else total_budget
     validate_optimization_plan(plan)
@@ -137,6 +156,14 @@ def validate_optimization_plan(plan):
                     if protocol['tasks'].get(task)!={'role':role,'fingerprint':fingerprint}:
                         raise ValueError('Task allocation violates shared study role/fingerprint')
                     tasks[task] = fingerprint
+        for i,j,ids in _factorial_slots(plan):
+            for task in ids:
+                if task in tasks or (root/task).resolve().parent!=root:
+                    raise ValueError('Factorial tasks must be distinct from all other stages')
+                fingerprint = task_fingerprint(root/task)
+                if protocol['tasks'].get(task)!={'role':'CONFIRM','fingerprint':fingerprint}:
+                    raise ValueError('Factorial task violates shared CONFIRM role/fingerprint')
+                tasks[task] = fingerprint
         if 'eval_tasks' in plan:
             if (not plan['schema'].endswith('/v3') or not isinstance(plan['eval_tasks'],list)
                     or not plan['eval_tasks']):
@@ -276,7 +303,7 @@ def run_optimization(plan,output,agent=None):
         state = SourceState(parent,plan['mechanism_cap'],plan['level']) if 'level' in plan else None
         evaluations = []
         # All fixed looks, including unexecuted ones, share one familywise alpha.
-        alpha = plan['alpha']/(len(plan['rounds'])*(plan['intervention_cap']+1))
+        alpha = plan['alpha']/(len(plan['rounds'])*(plan['intervention_cap']+1)+len(_factorial_slots(plan)))
         def finish(status,**data):
             validate_optimization_plan(plan)  # Do not seal a decision over drifted inputs/runtime.
             result = {'status':status,'deployed_artifact':asdict(parent),'rounds':rounds,**data}
@@ -329,7 +356,7 @@ def run_optimization(plan,output,agent=None):
             batch_id = state.register(batch) if state is not None else None
             ranked = (state.scheduled_actions(batch_id) if state is not None else
                       [(None,a,score) for a,score in batch.ranked_actions()])
-            eligible,feedback = [],[]
+            eligible,feedback,factorials = [],[],[]
             for j,(action_batch_id,action,score) in enumerate(ranked[:plan['intervention_cap']]):
                 stage = prefix+f'/confirm-{j:03}'
                 action_batch = state.batches[action_batch_id]['batch'] if state is not None else batch
@@ -357,6 +384,19 @@ def run_optimization(plan,output,agent=None):
                 elif claims:
                     feedback.append({'source_tasks':row['confirmation'][j],'claims':claims,
                         'artifact':action.artifact.version,'scope':child['contract']['scope']})
+                if 'factorial_tasks' in plan and len(action.patch_keys)>=2:
+                    keys = list(action.patch_keys)
+                    policy = json.loads(action.artifact.content)
+                    factorial_stage = prefix+f'/factorial-{j:03}'
+                    child = make_factorial_plan(parent,{keys[0]:policy[keys[0]]},
+                        {key:policy[key] for key in keys[1:]},plan['factorial_tasks'][i][j],
+                        plan['dataset'],plan['command'],plan['model'],plan['study'],plan['runtime_lock'],alpha=alpha)
+                    factorial = stage_call(factorial_stage,child,run_factorial)
+                    if factorial['status']!='FACTORIAL_COMPLETE':
+                        return finish('OPTIMIZATION_UNRESOLVED',failed_stage=factorial_stage)
+                    state.observe_factorial(action_batch_id,action.id,output/factorial_stage/'evidence.jsonl')
+                    factorials.append({'stage':factorial_stage,'artifact':action.artifact.version,
+                                       'interaction':factorial['interaction']})
                 if result['evidence'].get('minimal')=='MINIMAL_OBSERVED':
                     proof = output/stage/'evidence.jsonl'
                     confirmation_certificate(proof)  # Invalid proof is an error, not a loser.
@@ -395,6 +435,8 @@ def run_optimization(plan,output,agent=None):
                 'confirmed_actions':min(len(ranked),plan['intervention_cap']),
                 'eligible_candidates':len(eligible),'selection':selection,
                 'deployed_artifact':asdict(parent)})
+            if 'factorial_tasks' in plan:
+                rounds[-1]['factorials'] = factorials
             if plan.get('eval_tasks') and not evaluate_checkpoint(f'evaluation/round-{i:03}',parent):
                 return finish('OPTIMIZATION_UNRESOLVED',failed_stage=f'evaluation/round-{i:03}')
         return finish('OPTIMIZATION_COMPLETE')

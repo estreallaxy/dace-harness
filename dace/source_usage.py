@@ -33,6 +33,8 @@ def summarize_source_usage(paths):
                 observed.add((p['contract_id'],p['observation']['task']))
             elif e['kind']=='DIAGNOSTIC_OBSERVATION':
                 observed.add((p['owner'],p['task']))
+            elif e['kind']=='FACTORIAL_OBSERVATION':
+                observed.add((p['owner'],p['task']))
             elif e['kind']=='SELECTION_UNIT':
                 selected.add(p['task'])
             elif e['kind']=='EVALUATION_UNIT':

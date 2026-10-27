@@ -21,6 +21,8 @@ Use absolute executable/script paths when freezing the actual runner argv. The c
 
 An optional `coding_request` profile is frozen identically into every condition, for example `{"coding_request":{"reasoning":{"enabled":false},"response_format":{"type":"json_object"}}}`. Unspecified controls retain the provider default. Check provider support first. Reasoning can share the completion-token ceiling; JSON mode does not justify accepting a length-limited reply. Non-final completions consume their allocation and terminate unresolved without retry.
 
+Set `factorial_tasks` to a positive fixed count to reserve distinct four-configuration CONFIRM samples per intervention slot. These are additional tasks, not reused ordinary-confirmation samples. Multi-slot actions execute the four controls; unused slots keep their alpha allocation and release their unused budget. See [SOURCE_FACTORIAL.md](SOURCE_FACTORIAL.md) for evidence and C3/C4/C5 projection semantics. The default zero preserves the original 42-task design.
+
 Default sample sizes are development settings, not a power calculation. Small confirmation samples can remain statistically unresolved and selection may reject all patches. Freeze adequate sample sizes and budgets before reporting scientific conclusions.
 
 Controlled E4 preparation uses synthetic response fixtures with the pinned Harbor 0.25.0 parser:

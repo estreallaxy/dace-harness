@@ -30,6 +30,10 @@ FIELD_COMPONENTS = {'raw_response_parse_valid':{'model_response','parser'},
     'terminal_dispatch_completed':{'terminal'}}
 
 
+class SourceProposalValidationError(ValueError):
+    code = 'INVALID_GRAPH_ANCHOR'
+
+
 def source_graph(artifact):
     if (artifact != Artifact.create(artifact.content,artifact.parent,artifact.kind)
             or artifact.kind not in ('BASELINE','PATCH','JOINT_PATCH')):
@@ -161,7 +165,7 @@ def decode_proposal(payload,parent,mechanism_cap=4,action_cap=4,mechanisms_requi
                 or component not in FIELD_COMPONENTS[source] or not isinstance(path,list)
                 or not path or path[0]!=component or any(n not in NODES for n in path)
                 or any(NODES.index(b)!=NODES.index(a)+1 for a,b in zip(path,path[1:]))):
-            raise ValueError('Mechanism source/propagation is not anchored to the declared graph')
+            raise SourceProposalValidationError('Mechanism source/propagation is not anchored to the declared graph')
         mechanism_ids.add(name)
         baseline = _fields(raw['baseline'])
         if source not in dict(baseline):
@@ -285,6 +289,11 @@ raw_response_parse_valid, response_parse_valid, command_batch_valid, command_cou
 terminal_dispatch_completed. In particular, source:"response_code" and
 intervention:{"response_code":true} are INVALID. Component is a graph node,
 not an observation name. Source must be present in baseline and every intervention.
+Component must also be one of graph.observed_fields[source], and propagation must
+start at that component and follow adjacent directed graph edges. For example,
+source raw_response_parse_valid permits component model_response or parser, NOT
+instruction. An instruction_suffix edit may test a hypothesis anchored at a
+measured downstream node; it does not create a new observation at instruction.
 For example, if a faulty response transform corrupts valid JSON, a hypothesis may
 use component:"response_transform", source:"response_parse_valid",
 propagation:["response_transform","parser"], baseline:{"response_parse_valid":false},
@@ -349,5 +358,6 @@ Context:\n'''+json.dumps(context,ensure_ascii=False)
                           status='PROPOSED',graph_hash=digest(graph))
             return batch
         except Exception as exc:
-            ledger.append('SOURCE_AGENT_FAILED',parent=parent.version,error_type=type(exc).__name__)
+            details = {'validation_code':exc.code} if isinstance(exc,SourceProposalValidationError) else {}
+            ledger.append('SOURCE_AGENT_FAILED',parent=parent.version,error_type=type(exc).__name__,**details)
             raise

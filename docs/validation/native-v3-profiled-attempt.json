@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-27",
+  "formal_benchmark_result": false,
+  "source_commit": "432cbb8476e2df0abf4c94ff69ecd82939834142",
+  "status": "OPTIMIZATION_UNRESOLVED",
+  "failed_stage": "round-000/diagnostic",
+  "completed_rounds": 0,
+  "completed_task_executions": [
+    {
+      "task": "filter-js-from-html",
+      "reward": 0.0,
+      "boundary": {
+        "command_batch_valid": true,
+        "response_parse_valid": false,
+        "raw_response_parse_valid": true,
+        "command_count_preserved": true
+      }
+    },
+    {
+      "task": "feal-differential-cryptanalysis",
+      "reward": 0.0,
+      "boundary": {
+        "response_parse_valid": false,
+        "raw_response_parse_valid": true,
+        "command_batch_valid": true,
+        "command_count_preserved": true
+      }
+    }
+  ],
+  "coding_requests": 1,
+  "historical_error_type": "ValueError",
+  "provider_finish_reason": "stop",
+  "recorded_reasoning_tokens": 0,
+  "recorded_completion_tokens": 545,
+  "rejection": "Mechanism source/propagation was not anchored to the declared graph; instruction is not an observed raw-response boundary.",
+  "request_options": {
+    "reasoning": {
+      "enabled": false
+    },
+    "response_format": {
+      "type": "json_object"
+    }
+  },
+  "budget": {
+    "total": 33,
+    "spent": 12,
+    "locks": {}
+  },
+  "recorded_coding_cost_usd": 0.00182987,
+  "recorded_task_cost_usd": 0.00514400548,
+  "terminal_resume_no_calls_or_journal_changes": true,
+  "all_owned_resources_gone": true,
+  "limitations": [
+    "controlled injected fault",
+    "known development tasks",
+    "did not complete two rounds",
+    "v3 feedback/confirmation/selection not reached",
+    "do not retry this terminal attempt"
+  ],
+  "note": "Original attempt preserved. The later prompt/error-code fix does not upgrade this failed attempt."
+}

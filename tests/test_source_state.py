@@ -272,6 +272,38 @@ class NativeStateTests(unittest.TestCase):
             self.assertEqual([row['field'] for row in record['discriminations']],
                              ['command_batch_valid','command_count_preserved'])
 
+    def test_factorial_effect_and_conflicting_failure_drive_a_joint_revision_question(self):
+        payload = proposal()
+        payload['actions'][0]['edits']['instruction_suffix'] = 'Controlled joint edit.'
+        self.batch = decode_proposal(payload,self.parent)
+        state = SourceState(self.parent)
+        identity = state.register(self.batch)
+        self.observe(state,identity,failure='CONTRADICTED',bridge='UNRESOLVED')
+        action = next(a for a in self.batch.actions if a.id=='strip')
+        proof = {'plan':{'baseline':asdict(self.parent)},'candidate':asdict(action.artifact),
+            'interaction':{'interaction_status':'POSITIVE','activation_complete':True},
+            'source_tasks':['factorial-task'],'scope':'scope','ledger':'fixture-factorial.jsonl','sha256':'a'*64}
+        with patch('dace.source_factorial.factorial_feedback',return_value=proof):
+            state.observe_factorial(identity,'strip','fixture-factorial.jsonl')
+            before = state.snapshot()
+            state.observe_factorial(identity,'strip','fixture-factorial.jsonl')
+            self.assertEqual(state.snapshot(),before)
+        target = next(t for t in state.targets if t['kind']=='REVISE_SOURCE_FOR_FACTORIAL_EFFECT')
+        self.assertEqual(target['failure_status'],'CONTRADICTED')
+        self.assertEqual(target['interaction_status'],'POSITIVE')
+        self.assertFalse(target['causal_identification'])
+        state.deploy(action.artifact)
+        self.assertTrue(all(entry['parent_status']=='STALE' for entry in state.interactions.values()))
+
+    def test_factorial_response_cannot_be_transferred_to_a_different_action_artifact(self):
+        state = SourceState(self.parent)
+        identity = state.register(self.batch)
+        proof = {'plan':{'baseline':asdict(self.parent)},'candidate':asdict(self.batch.actions[1].artifact)}
+        with patch('dace.source_factorial.factorial_feedback',return_value=proof):
+            with self.assertRaisesRegex(ValueError,'another exact parent or action'):
+                state.observe_factorial(identity,'strip','fixture.jsonl')
+        self.assertEqual(state.interactions,{})
+
 
 if __name__=='__main__':
     unittest.main()

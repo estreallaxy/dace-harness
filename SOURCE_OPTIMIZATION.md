@@ -34,6 +34,8 @@ plan = make_optimization_plan(
     #                 'response_format':{'type':'json_object'}},
     # 可选：eval_tasks 必须来自研究中独立的 EVAL 角色。
     # eval_tasks=['blind-evaluation-task'],
+    # 可选：每轮、每个干预槽位独立的四配置 CONFIRM 样本。
+    # factorial_tasks=[[['factorial-task-0'],['factorial-task-1']]],
 )
 Path(plan_path).write_text(json.dumps(plan, indent=2), encoding='utf-8')
 ```
@@ -57,6 +59,7 @@ python tools/run_source_optimization.py --plan D:/path/to/plan.json --output D:/
 - 每轮诊断上限为 `N_diag + 10` 单位，10 为一次 Coding API 请求的固定记账单位。
 - 每个确认槽位为 `2 * N_confirm_slot`，基线与候选各执行一次。槽位数由独立参数 `intervention_cap` 限制，不超过 `action_cap`。候选先按冻结预测分歧排序，再绑定预定槽位。
 - 每轮选择预留 `(intervention_cap + 1) * N_select`；实际只比较有有效确认凭证的候选，同一选择任务共享一次基线。
+- 若冻结 `factorial_tasks`，每个槽位另预留 `4*N_factorial`。实际选择的多槽位修改进入四配置取证；缺少任何对照便终止为未解决，不替代独立晋级。对应 alpha 份额也在运行前单独划分，不因槽位未用而重分配。详见 [SOURCE_FACTORIAL.md](SOURCE_FACTORIAL.md)。
 - 整个运行先预留所有轮次的上述额度，再启动第一条诊断。未使用余额最后释放；不能借用下一阶段额度扩大本阶段搜索。
 - 全局 alpha 均分给所有预定确认槽位和选择阶段；即使某槽位最终不用，也不事后重分配显著性预算。确认器还会在本次竞争预测间分配自身 alpha。
 - 新建优化计划默认v2，确认阶段使用不可变 `PredicateProtocol` 的固定样本精确二项区间；默认违约容差为0.1，必须在执行前确定。每个机制预测的alpha再分给失败/干预边界/中介三个谓词族及效用对照，各占四分之一；族内按字段分配。单条匹配不被统计确认。区间要求独立同分布二元任务单位，当前没有聚类/分层替代。旧v1计划仅恢复其原有样本匹配协议，不追溯升级。

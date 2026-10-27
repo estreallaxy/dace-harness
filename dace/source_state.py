@@ -45,6 +45,7 @@ class SourceState:
         self.parent,self.cap,self.level = parent.version,cap,AblationLevel(level)
         self.records,self.batches,self.proofs,self.targets = {},{}, {},[]
         self.utility = {}
+        self.interactions = {}
         self.sequence = 0
 
     @property
@@ -197,6 +198,47 @@ class SourceState:
             if target not in self.targets:
                 self.targets.append(target)
 
+    def observe_factorial(self,batch_id,action_id,path):
+        from .source_factorial import factorial_feedback
+        item = self.batches[batch_id]
+        batch = item['batch']
+        action = next(action for action in batch.actions if action.id==action_id)
+        proof = factorial_feedback(path)
+        if (batch.parent!=self.parent or proof['plan']['baseline']['version']!=self.parent
+                or proof['candidate']!=asdict(action.artifact)):
+            raise ValueError('Factorial evidence belongs to another exact parent or action')
+        key = digest(proof['plan'])
+        if key in self.interactions:
+            if self.interactions[key]['sha256']!=proof['sha256']:
+                raise ValueError('Accepted factorial evidence changed')
+            return
+        entry = {'artifact':action.artifact.version,'parent':self.parent,'parent_status':'CURRENT',
+            'scope':proof['scope'],'source_tasks':proof['source_tasks'],
+            'ledger':proof['ledger'],'sha256':proof['sha256'],'evidence_type':'FOUR_CONFIGURATION_CONTROLS'}
+        if self.features['contribution']:
+            entry['interaction'] = proof['interaction']
+        if self.features['bridge']:
+            # Four utility controls establish a contribution contrast. They do
+            # not alone identify which source/propagation mechanism explains it.
+            kind = ('LINK_SOURCE_TO_FACTORIAL_EFFECT' if proof['interaction']['interaction_status'] in ('POSITIVE','NEGATIVE')
+                    else 'VERIFY_JOINT_ACTIVATION' if not proof['interaction']['activation_complete']
+                    else 'RESOLVE_FACTORIAL_EFFECT')
+            for revision in item['mechanisms'].values():
+                record = self.records[revision]
+                if record['status']=='ACTIVE' and record['hypothesis']['own_action']==action_id:
+                    source_views = [entry['claim']['failure'] for entry in record['responses'].values()
+                        if entry['artifact']==action.artifact.version and entry['scope']==proof['scope']]
+                    failure = source_views[-1] if source_views else 'UNRESOLVED'
+                    joint_kind = kind
+                    if kind=='LINK_SOURCE_TO_FACTORIAL_EFFECT':
+                        joint_kind = ('REVISE_SOURCE_FOR_FACTORIAL_EFFECT' if failure=='CONTRADICTED'
+                            else 'TEST_SOURCE_LINK_TO_FACTORIAL_EFFECT' if failure=='CONSISTENT'
+                            else 'RESOLVE_SOURCE_FOR_FACTORIAL_EFFECT')
+                    self.targets.append({'kind':joint_kind,'revision':revision,'artifact':action.artifact.version,
+                        'scope':proof['scope'],'contract_id':key,'status':'PROPOSED','causal_identification':False,
+                        'failure_status':failure,'interaction_status':proof['interaction']['interaction_status']})
+        self.interactions[key] = entry
+
     def _discriminate(self,item,action_id,feedback,contract_id):
         from itertools import combinations
         predictions = {p.mechanism:{'boundary':dict(p.intervention_boundary),'mediator':dict(p.mediator)}
@@ -250,8 +292,10 @@ class SourceState:
                 record['status'] = 'STALE'
         for target in self.targets:
             target['status'] = 'STALE'
+        for interaction in self.interactions.values():
+            interaction['parent_status'] = 'STALE'
 
     def snapshot(self):
         return json.loads(json.dumps({'schema':'dace-native-cmvs/v1','parent':self.parent,
             'cap':self.cap,'level':self.level.value,'records':self.records,'targets':self.targets,
-            'proofs':self.proofs,'utility':self.utility,'sequence':self.sequence}))
+            'proofs':self.proofs,'utility':self.utility,'interactions':self.interactions,'sequence':self.sequence}))

@@ -91,6 +91,21 @@ class NativeExperimentPreparationTests(unittest.TestCase):
             plan = json.loads((self.out/entry['plan']).read_text(encoding='utf-8'))
             self.assertEqual(plan['coding_request'],self.profile.coding_request)
 
+    def test_optional_factorial_slots_are_distinct_confirm_units_with_reserved_cost(self):
+        for i in range(12,16):
+            path = self.dataset/str(i)
+            path.mkdir()
+            (path/'task.toml').write_text('[metadata]\ncategory="fixture"',encoding='utf-8')
+            (path/'instruction.md').write_text('Distinct fixture '+str(i),encoding='utf-8')
+        self.profile = replace(self.profile,factorial_tasks=1)
+        manifest = self.prepare(replicates=(0,),experiments=('e3',))
+        for entry in manifest['entries']:
+            plan = json.loads((self.out/entry['plan']).read_text(encoding='utf-8'))
+            self.assertEqual(len(plan['factorial_tasks'][0]),plan['intervention_cap'])
+            tasks = [t for slot in plan['factorial_tasks'][0] for t in slot]
+            other = sum(plan['rounds'][0]['confirmation'],[])+plan['rounds'][0]['diagnostic']+plan['rounds'][0]['selection']+plan['eval_tasks']
+            self.assertFalse(set(tasks)&set(other))
+
     def test_capacity_failure_occurs_before_output_or_registry_creation(self):
         self.profile = replace(self.profile,rounds=10)
         with self.assertRaisesRegex(ValueError,'INSUFFICIENT_DISTINCT_TASKS'):

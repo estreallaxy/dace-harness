@@ -46,6 +46,8 @@ Full preparation and recovery details: [SOURCE_OPTIMIZATION.md](SOURCE_OPTIMIZAT
 
 For deduplicated native E2/E3 plans and controlled E4 parser probes, see [NATIVE_EXPERIMENTS.md](NATIVE_EXPERIMENTS.md). These preparation tools do not produce benchmark performance results.
 
+For optional four-configuration contribution contrasts, independent confirmation budgets and multi-round joint-update questions, see [SOURCE_FACTORIAL.md](SOURCE_FACTORIAL.md). These controls do not replace independent selection or prove mediated causal paths.
+
 ## Native mechanisms and budgets
 
 - The editable slots are pure response transformations, pure command transformations and an instruction suffix. They alter the actual Terminus execution path. This initial edit surface is bounded; it is not arbitrary repository editing or an adversarial-code sandbox.

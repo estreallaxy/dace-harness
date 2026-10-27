@@ -31,6 +31,7 @@ class NativeProfile:
     partition_seed: int = 0
     family_mode: str = 'metadata-category'
     coding_request: dict | None = None
+    factorial_tasks: int = 0
 
     def __post_init__(self):
         for name in ('rounds','diagnostic_tasks','confirmation_tasks','selection_tasks',
@@ -42,6 +43,8 @@ class NativeProfile:
         if self.family_mode not in ('metadata-category','aggregate'):
             raise ValueError('Freeze metadata-category or explicit aggregate family grouping')
         validate_coding_request(self.coding_request,self.coding_max_tokens)
+        if type(self.factorial_tasks) is not int or self.factorial_tasks<0:
+            raise ValueError('Factorial task count must be a nonnegative frozen integer')
 
 
 def native_conditions(experiments=('e2','e3'),interventions=(1,2,4),mechanisms=(2,4,8)):
@@ -89,7 +92,7 @@ def suite_design(dataset,profile=NativeProfile(),experiments=('e2','e3'),
         if not isinstance(category,str) or not category:
             raise ValueError('Missing metadata.category; choose explicit aggregate mode for non-category fixtures')
         families[task] = category
-    needed = profile.rounds*(profile.diagnostic_tasks+maximum*profile.confirmation_tasks+
+    needed = profile.rounds*(profile.diagnostic_tasks+maximum*(profile.confirmation_tasks+profile.factorial_tasks)+
                              profile.selection_tasks)+profile.evaluation_tasks
     if len(tasks)<needed:
         raise ValueError(f'INSUFFICIENT_DISTINCT_TASKS: need {needed}, found {len(tasks)}; no pool recycling')
@@ -101,7 +104,7 @@ def suite_design(dataset,profile=NativeProfile(),experiments=('e2','e3'),
         offset += n
         return values
     allocation = {'DIAG':take(profile.rounds*profile.diagnostic_tasks),
-        'CONFIRM':take(profile.rounds*maximum*profile.confirmation_tasks),
+        'CONFIRM':take(profile.rounds*maximum*(profile.confirmation_tasks+profile.factorial_tasks)),
         'SELECT':take(profile.rounds*profile.selection_tasks)}
     evaluation = take(profile.evaluation_tasks)
     # Remaining task IDs are held out too; they never become spare optimization units.
@@ -145,19 +148,24 @@ def prepare_native_suite(parent,dataset,command,model,runtime_lock,output,*,
                 lineage = f'{key}-replicate-{replicate}'
                 registry.create_lineage(study_id,lineage)
                 study = {'registry':str(registry_path),'id':study_id,'lineage':lineage}
-                rows = []
+                rows,factorial = [],[]
                 for i in range(profile.rounds):
                     selection = pools['SELECT'][i*profile.selection_tasks:(i+1)*profile.selection_tasks]
-                    start = i*design['max_interventions']*profile.confirmation_tasks
+                    start = i*design['max_interventions']*(profile.confirmation_tasks+profile.factorial_tasks)
                     slots = [pools['CONFIRM'][start+j*profile.confirmation_tasks:start+(j+1)*profile.confirmation_tasks]
                              for j in range(spec['intervention_cap'])]
+                    if profile.factorial_tasks:
+                        offset = start+design['max_interventions']*profile.confirmation_tasks
+                        factorial.append([pools['CONFIRM'][offset+j*profile.factorial_tasks:
+                            offset+(j+1)*profile.factorial_tasks] for j in range(spec['intervention_cap'])])
                     rows.append({'diagnostic':pools['DIAG'][i*profile.diagnostic_tasks:(i+1)*profile.diagnostic_tasks],
                         'confirmation':slots,'selection':selection,
                         'families':{task:design['families'][task] for task in selection}})
                 plan = make_optimization_plan(parent,rows,design['dataset'],command,model,study,runtime_lock,
                     mechanism_cap=spec['mechanism_cap'],intervention_cap=spec['intervention_cap'],
                     action_cap=profile.action_cap,coding_max_tokens=profile.coding_max_tokens,
-                    level=spec['level'],eval_tasks=design['eval_tasks'],coding_request=profile.coding_request)
+                    level=spec['level'],eval_tasks=design['eval_tasks'],coding_request=profile.coding_request,
+                    factorial_tasks=factorial if profile.factorial_tasks else None)
                 # IDs affect task ordering only; no claim about hosted-model seeds.
                 plan['replicate_id'] = replicate
                 plan['suite_condition'] = key

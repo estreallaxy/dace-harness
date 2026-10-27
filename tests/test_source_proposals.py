@@ -177,6 +177,18 @@ class CodingRequestTests(unittest.TestCase):
         self.assertEqual(responses[0]['payload']['usage']['cost'],.01)
         self.assertEqual(self.ledger.events[-1]['kind'],'SOURCE_AGENT_FAILED')
 
+    def test_unmeasured_instruction_anchor_is_rejected_with_safe_diagnostic_code(self):
+        payload = proposal()
+        payload['mechanisms'][0]['component'] = 'instruction'
+        payload['mechanisms'][0]['propagation'] = ['instruction','model_response','response_transform','parser']
+        self.llm.complete.return_value = (json.dumps(payload),{'cost':.001})
+        from dace.source_proposals import SourceProposalValidationError
+        with self.assertRaises(SourceProposalValidationError):
+            self.request()
+        failure = self.ledger.events[-1]['payload']
+        self.assertEqual(failure['validation_code'],'INVALID_GRAPH_ANCHOR')
+        self.llm.complete.assert_called_once()
+
     def test_length_limited_response_is_rejected_even_if_its_json_is_parseable(self):
         self.llm.complete.return_value = (json.dumps(proposal()),
             {'cost':.01,'_completion':{'finish_reason':'length'}})
