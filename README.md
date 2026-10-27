@@ -44,6 +44,8 @@ python tools/report_native_run.py --run runs/study --output runs/study-report
 
 Full preparation and recovery details: [SOURCE_OPTIMIZATION.md](SOURCE_OPTIMIZATION.md), [SOURCE_CONFIRMATION.md](SOURCE_CONFIRMATION.md), [SOURCE_SELECTION.md](SOURCE_SELECTION.md).
 
+For deduplicated native E2/E3 plans and controlled E4 parser probes, see [NATIVE_EXPERIMENTS.md](NATIVE_EXPERIMENTS.md). These preparation tools do not produce benchmark performance results.
+
 ## Native mechanisms and budgets
 
 - The editable slots are pure response transformations, pure command transformations and an instruction suffix. They alter the actual Terminus execution path. This initial edit surface is bounded; it is not arbitrary repository editing or an adversarial-code sandbox.

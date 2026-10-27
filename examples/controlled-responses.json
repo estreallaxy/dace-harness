@@ -1,0 +1,10 @@
+[
+  {
+    "id": "one-command",
+    "response": "{\"analysis\": \"Controlled parser fixture.\", \"plan\": \"Print a marker.\", \"commands\": [{\"keystrokes\": \"printf fixture_one\\n\", \"duration\": 0.1}]}"
+  },
+  {
+    "id": "two-commands",
+    "response": "{\"analysis\": \"Controlled parser fixture.\", \"plan\": \"Print two markers.\", \"commands\": [{\"keystrokes\": \"printf fixture_two\\n\", \"duration\": 0.1}, {\"keystrokes\": \"printf fixture_three\\n\", \"duration\": 0.1}]}"
+  }
+]

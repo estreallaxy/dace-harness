@@ -25,7 +25,8 @@ ANCHORS = {'instruction_suffix':('instruction','EditableTerminus.run'),
     'command_code':('command_transform','EditableTerminus._handle_llm_interaction')}
 FIELD_COMPONENTS = {'raw_response_parse_valid':{'model_response','parser'},
     'response_parse_valid':{'response_transform','parser'},
-    'command_batch_valid':{'command_transform'},'terminal_dispatch_completed':{'terminal'}}
+    'command_batch_valid':{'command_transform'},'command_count_preserved':{'command_transform'},
+    'terminal_dispatch_completed':{'terminal'}}
 
 
 def source_graph(artifact):
@@ -278,7 +279,7 @@ bridge:"SOURCE_REPAIR"|"COMPENSATION"|"INTERACTION"|"UNRESOLVED"}},explanation}]
 Keep editable code slots distinct from measured observations. Only edits may use
 response_code, command_code or instruction_suffix as keys. Mechanism source and all
 baseline/intervention/mediator keys must use measured boolean fields only:
-raw_response_parse_valid, response_parse_valid, command_batch_valid,
+raw_response_parse_valid, response_parse_valid, command_batch_valid, command_count_preserved,
 terminal_dispatch_completed. In particular, source:"response_code" and
 intervention:{"response_code":true} are INVALID. Component is a graph node,
 not an observation name. Source must be present in baseline and every intervention.

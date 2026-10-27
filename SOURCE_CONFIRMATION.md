@@ -11,7 +11,7 @@
 | 槽位 | 实际执行位置 | 可观察事实 |
 | --- | --- | --- |
 | response_code | 模型响应交给原解析器之前 | 原始/变换后响应解析是否成功 |
-| command_code | 已解析命令交给 terminal 之前 | 输出命令是否符合结构契约 |
+| command_code | 已解析命令交给 terminal 之前 | 输出命令是否符合结构契约、命令数量是否保留 |
 | instruction_suffix | instruction 交给原 agent 之前 | 指定后缀的 Hook 是否实际执行、是否改变输入 |
 
 `response_code` 和 `command_code` 是 `def transform(value)` 形式的受限 Python 函数，支持纯字符串、列表与字典变换。它们不能导入模块、读取文件、访问私有属性或执行任意调用。该限制定义初始编辑范围，不是针对恶意代码的完整资源隔离沙箱。
@@ -48,7 +48,7 @@ plan = make_plan(baseline, candidate, [prediction], ['YOUR_FRESH_TASK_ID'],
 Path('plan.json').write_text(json.dumps(plan, indent=2), encoding='utf-8')
 ```
 
-只允许真实 Hook 的布尔谓词：`raw_response_parse_valid`、`response_parse_valid`、`command_batch_valid`、`terminal_dispatch_completed`。这些是逐 trial 聚合的执行事实，不是完整的语义正确性或根因真值。
+只允许真实 Hook 的布尔谓词：`raw_response_parse_valid`、`response_parse_valid`、`command_batch_valid`、`command_count_preserved`、`terminal_dispatch_completed`。这些是逐 trial 聚合的执行事实，不是完整的语义正确性或根因真值。命令数量保留也不保证命令内容正确；历史 Trace 缺失该字段时保持未知。
 
 显式传入 `PredicateProtocol` 时生成v2统计契约，固定违约容差、完整样本时点及任务级精确二项区间。三个谓词族与效用对照各取得该预测alpha的四分之一，谓词族内再按字段分配；置信区间上界不超过容差时才标为 `CONSISTENT`，下界超过容差才标为 `CONTRADICTED`，否则保持未解决。缺失观测不因其他样本匹配而被忽略。它要求独立同分布二元任务单位，尚未实现聚类/分层替代；不适用时不能据此作正式统计结论。
 
@@ -91,7 +91,7 @@ study = {'registry': 'D:/UserData/lulu/Projects/dace/runs/study.sqlite3',
 
 整个会话的任务在第一次执行前原子预约，其他会话不能借用；换输出目录、丢弃本地账本或执行失败都不释放任务。允许恢复同一会话，但每个成对单元的启动只登记一次。EVAL 可以在冻结的同一评估池上做多个检查点，但其任何任务或聚合反馈都不能披露给优化器。
 
-优化器收到诊断、确认或选择反馈时，须通过 `TaskRegistry.disclose` 登记派生数据的真实来源任务和字段；尚未启动的任务不能冒充数据来源。该接口已接入真实源码确认，自动源码优化器尚未接通。
+优化器收到诊断、确认或选择反馈时，须通过 `TaskRegistry.disclose` 登记派生数据的真实来源任务和字段；尚未启动的任务不能冒充数据来源。该接口已接入真实源码确认与自动源码优化器；EVAL 不能披露给优化器。
 
 ## 执行实现冻结
 
@@ -107,8 +107,8 @@ python tools/run_source_confirmation.py --plan plan.json --output runs/source-co
 
 ## 正式实验前的限制
 
-- 此确认入口没有自动诊断/竞争机制搜索、LLM源码提案或C0–C5真实演化主循环；原主循环仍使用合成布尔修改目录。独立选择已有单独入口，未被包装成完整演化闭环。
+- 此文件描述成对确认子流程。自动诊断、LLM 源码提案、持久竞争机制与 C0–C5 原生多轮编排见 [SOURCE_OPTIMIZATION.md](SOURCE_OPTIMIZATION.md)；该原生 v3 编排仍需新的真实模型多轮验证。
 - 未绑定 study 的旧计划仅有本会话隔离，会明确标记 `task_isolation=session-only`；它们不能作为已完成跨会话隔离的正式实验。不能把已用于 smoke 的 `fix-git` 当作全新确认任务。
 - 顺序固定为 baseline 后 candidate；环境随机性、实际容器镜像证明、完整二进制依赖锁及正式预算分配仍需冻结。没有 runtime_lock 的旧计划不能防止固定 argv 所指脚本被外部修改。
 - 单题、重复同题及八轮限制只能验证集成；不能用于正式 Pass@1 表、统计显著收益、根因定位准确率或有效补丁单位成本结论。
-- 完整演化主循环和晋级状态的重启恢复仍待实现；这里恢复的仅是已冻结确认义务。
+- 此入口恢复已冻结确认义务；多轮编排和晋级状态恢复由 `source_optimization` 管理。受控恢复测试不能替代正式实验。

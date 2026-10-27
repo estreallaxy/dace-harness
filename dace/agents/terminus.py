@@ -56,7 +56,7 @@ class EditableTerminus(Terminus2):
         return 'dace-terminus'
 
     def version(self):
-        return 'dace-terminus/v1:' + self.policy.version[:12]
+        return 'dace-terminus/v2:' + self.policy.version[:12]
 
     def _get_parser(self):
         return _ObservedParser(super()._get_parser(),self)
@@ -66,7 +66,8 @@ class EditableTerminus(Terminus2):
         commands = [{'keystrokes':c.keystrokes,'duration_sec':c.duration_sec} for c in result[0]]
         adapted = self.policy_runtime.command_transform(commands)
         result[0] = [Command(**command) for command in adapted]
-        self.boundaries.append({'command_batch_valid':True})
+        self.boundaries.append({'command_batch_valid':True,
+                                'command_count_preserved':len(adapted)==len(commands)})
         return tuple(result)
 
     async def _execute_commands(self,*args,**kwargs):

@@ -1,0 +1,194 @@
+{
+  "schema": "dace-controlled-native-faults/v1",
+  "formal_benchmark_result": false,
+  "kind": "CONTROLLED_PARSER_POLICY_FIXTURES",
+  "model_calls": 0,
+  "task_executions": 0,
+  "terminal_commands_executed": 0,
+  "official_rewards_measured": false,
+  "limitations": [
+    "known injected faults",
+    "synthetic response fixtures",
+    "no C3/C5 optimizer comparison yet",
+    "no task success or population-causal claim"
+  ],
+  "date": "2026-10-27",
+  "parser": "Harbor 0.25.0 TerminusJSONPlainParser",
+  "responses": "examples/controlled-responses.json",
+  "scenarios": [
+    {
+      "scenario": "source_error",
+      "baseline": [
+        {
+          "raw_response_parse_valid": true,
+          "response_parse_valid": false,
+          "command_batch_valid": true,
+          "command_count_preserved": true
+        },
+        {
+          "raw_response_parse_valid": true,
+          "response_parse_valid": false,
+          "command_batch_valid": true,
+          "command_count_preserved": true
+        }
+      ],
+      "interventions": {
+        "source-repair": [
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          },
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "downstream_compensation",
+      "baseline": [
+        {
+          "raw_response_parse_valid": true,
+          "response_parse_valid": false,
+          "command_batch_valid": true,
+          "command_count_preserved": true
+        },
+        {
+          "raw_response_parse_valid": true,
+          "response_parse_valid": false,
+          "command_batch_valid": true,
+          "command_count_preserved": true
+        }
+      ],
+      "interventions": {
+        "compensation": [
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": false,
+            "command_batch_valid": true,
+            "command_count_preserved": false
+          },
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": false,
+            "command_batch_valid": true,
+            "command_count_preserved": false
+          }
+        ],
+        "source-repair": [
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          },
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "compound_fault",
+      "baseline": [
+        {
+          "raw_response_parse_valid": true,
+          "response_parse_valid": false,
+          "command_batch_valid": true,
+          "command_count_preserved": true
+        },
+        {
+          "raw_response_parse_valid": true,
+          "response_parse_valid": false,
+          "command_batch_valid": true,
+          "command_count_preserved": true
+        }
+      ],
+      "interventions": {
+        "response-only": [
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": false
+          },
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": false
+          }
+        ],
+        "command-only": [
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": false,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          },
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": false,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          }
+        ],
+        "joint-repair": [
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          },
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "mislocalization",
+      "baseline": [
+        {
+          "raw_response_parse_valid": true,
+          "response_parse_valid": true,
+          "command_batch_valid": true,
+          "command_count_preserved": false
+        },
+        {
+          "raw_response_parse_valid": true,
+          "response_parse_valid": true,
+          "command_batch_valid": true,
+          "command_count_preserved": false
+        }
+      ],
+      "interventions": {
+        "command-repair": [
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          },
+          {
+            "raw_response_parse_valid": true,
+            "response_parse_valid": true,
+            "command_batch_valid": true,
+            "command_count_preserved": true
+          }
+        ]
+      }
+    }
+  ]
+}

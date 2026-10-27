@@ -21,7 +21,7 @@ from .source_usage import summarize_source_usage
 
 
 BOUNDARIES = frozenset({'raw_response_parse_valid', 'response_parse_valid',
-                       'command_batch_valid', 'terminal_dispatch_completed'})
+                       'command_batch_valid', 'command_count_preserved','terminal_dispatch_completed'})
 
 
 def make_plan(baseline, candidate, predictions, tasks, dataset, command, model,

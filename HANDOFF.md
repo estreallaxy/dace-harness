@@ -10,6 +10,8 @@
 - Native v3: persistent versioned CMVS, bounded active revisions with archived history, own/foreign response separation, stale parent invalidation, projected C0–C5/Contribution-only feedback and typed proposed joint targets.
 - Optional blind EVAL checkpoints: `eval_tasks` in a v3 plan. EVAL data never enters Coding Agent context; evaluation and optimization budgets are reported separately.
 - Offline native report export: `tools/report_native_run.py`; exports `curve.csv`, `stages.csv`, `report.json` from verified child receipts, without task reruns or duplicate monetary accounting.
+- Native E2/E3 suite preparation: `tools/prepare_native_suite.py` freezes common task roles, blind EVAL and deduplicated conditions; `tools/run_native_suite.py` explicitly executes prepared plans after validating every plan. See `NATIVE_EXPERIMENTS.md`.
+- Four controlled policy-fault constructors and actual Harbor parser probes: `controlled_faults`, `tools/probe_controlled_faults.py`. These measure parser/hook boundaries, without task execution or verifier rewards.
 
 ## Start here
 
@@ -27,10 +29,10 @@ Native v3 state, ablation projections, and blind evaluation are covered by contr
 
 ## Remaining research work — do not relabel as complete
 
-1. **E1:** official AutoSaddler integration is absent. `LocalityHeuristic` is a named development control, never AutoSaddler. Implement/pin the actual optimizer before reporting the requested comparison. No full TB2, GAIA2, or SWE-Bench Pro main-experiment table exists.
+1. **E1:** official AutoSaddler integration is absent. `LocalityHeuristic` is a named development control, never AutoSaddler. See `AUTOSADDLER_INTEGRATION.md` for the inspected upstream pin and exact API boundary. Implement the actual optimizer integration before reporting the requested comparison. No full TB2, GAIA2, or SWE-Bench Pro main-experiment table exists.
 2. **Native mechanism scope:** joint targets are controller-derived proposed questions. The Coding Agent can respond with new source hypotheses and combined slot edits, but arbitrary semantic scope splitting, held-out verification of new split predicates, four-configuration interaction identification, and retained candidate-child search are not complete native features.
 3. **E2/E3:** run all native levels on the same frozen study/profile; verify model-driven behavior differences, not only masks. The active CMVS cap and confirmation-slot cap are independently frozen. No formal sensitivity results are supplied.
-4. **E4:** add controlled native source, compensation, compound-fault, and wrong-localization scenarios comparing C3/C5. Current parser probes and unit fixtures are preparation, not a complete correctness table or Trace→intervention→joint update→next edit case study.
+4. **E4:** controlled source, compensation, compound-fault, and wrong-localization constructors are provided. Add actual C3/C5 optimizer comparisons and task-level utility. Current parser probes and unit fixtures are preparation, not a complete correctness table or Trace→intervention→joint update→next edit case study.
 5. **E5:** native export now reuses checkpoint journals; multi-run confidence bands, official AutoSaddler comparison, and paper figures still require real comparable runs. Repeated EVAL checkpoints are not new independent samples.
 6. **Other datasets:** GAIA2 and SWE-Bench Pro adapters currently reject live mode. Implement and verify their official execution/evaluation adapters; do not remove the exception and substitute simulator scores.
 7. **Statistics:** exact binomial predicates require independent identically distributed binary task units. Implement a predeclared stratified/cluster-aware alternative where this assumption is unsuitable. No code here identifies mediated effects merely from trace order.
