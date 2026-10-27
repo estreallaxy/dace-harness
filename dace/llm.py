@@ -3,6 +3,7 @@ import json
 import os
 import urllib.request
 from pathlib import Path
+from .coding_request import validate_coding_request
 
 DEFAULT_ENV = Path('.env.local')
 
@@ -27,9 +28,10 @@ class LLM:
     def __init__(self, model='deepseek/deepseek-v4.1-flash', env_file=None):
         self.model, self.key = model, load_key(env_file)
 
-    def complete(self, messages, max_tokens=1800):
+    def complete(self, messages, max_tokens=1800,*,request_options=None):
         body = {'model': self.model, 'messages': messages, 'temperature': 0,
                 'max_tokens': max_tokens}
+        body.update(validate_coding_request(request_options,max_tokens))
         req = urllib.request.Request('https://openrouter.ai/api/v1/chat/completions',
                     data=json.dumps(body).encode(), headers={
                         'Authorization': 'Bearer ' + self.key, 'Content-Type': 'application/json'})

@@ -18,11 +18,12 @@ from .source_execution import SourceExecution
 from .source_proposals import SourceCodingAgent,decode_proposal,source_graph
 from .source_usage import summarize_source_usage
 from .task_registry import TaskRegistry
+from .coding_request import validate_coding_request
 
 
 def make_diagnostic_plan(parent,tasks,dataset,command,model,study,runtime_lock,
                          mechanism_cap=4,action_cap=4,optimizer_model=None,history=None,coding_max_tokens=12000,
-                         level=None,state_context=None):
+                         level=None,state_context=None,coding_request=None):
     if not isinstance(command,list):
         raise ValueError('Diagnostic runner command must be an argv list')
     tasks = list(tasks)
@@ -37,6 +38,8 @@ def make_diagnostic_plan(parent,tasks,dataset,command,model,study,runtime_lock,
         from .components import AblationLevel
         plan.update(schema='dace-source-diagnostics/v2',level=AblationLevel(level).value,
                     state_context={} if state_context is None else state_context)
+    if coding_request is not None:
+        plan['coding_request'] = validate_coding_request(coding_request,coding_max_tokens)
     validate_diagnostic_plan(plan)
     return plan
 
@@ -58,6 +61,7 @@ def validate_diagnostic_plan(plan):
         raise ValueError('Freeze exact diagnostic tasks, search caps and request budget')
     if type(plan['coding_max_tokens']) is not int or not 1<=plan['coding_max_tokens']<=65536:
         raise ValueError('Coding output-token cap must be frozen and bounded')
+    validate_coding_request(plan.get('coding_request'),plan['coding_max_tokens'])
     if (not isinstance(plan['command'],list) or not plan['command']
             or any(not isinstance(v,str) or not v for v in plan['command'])
             or not plan['model'] or not plan['optimizer_model'] or not isinstance(plan['history'],list)):
@@ -209,6 +213,8 @@ def run_diagnostic_proposal(plan,output,agent=None,batch=None):
                     registry.disclose(study['id'],study['lineage'],tasks,fields)
             options = ({'level':plan['level'],'state_context':plan['state_context']}
                        if 'level' in plan else {})
+            if 'coding_request' in plan:
+                options['coding_request'] = plan['coding_request']
             compiled = agent.propose(parent,[observed[t] for t in plan['tasks']],plan['history'],
                 mechanism_cap=plan['mechanism_cap'],action_cap=plan['action_cap'],budget=budget,
                 owner=coding_owner,ledger=ledger,disclose=disclose,**options)

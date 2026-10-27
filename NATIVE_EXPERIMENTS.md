@@ -19,6 +19,8 @@ python tools/run_native_suite.py --suite runs/native-suite/suite.json
 
 Use absolute executable/script paths when freezing the actual runner argv. The command JSON must match the runtime lock. `--profile` accepts a JSON object of `NativeProfile` fields; `--replicates` defaults to `0,1,2`. Plan creation reserves ceilings, not provider dollars. Running the suite explicitly incurs model/task costs; the dispatcher verifies all plans first and resumes each existing run under its own durable contracts. It does not overwrite changed protocols or recycle consumed tasks.
 
+An optional `coding_request` profile is frozen identically into every condition, for example `{"coding_request":{"reasoning":{"enabled":false},"response_format":{"type":"json_object"}}}`. Unspecified controls retain the provider default. Check provider support first. Reasoning can share the completion-token ceiling; JSON mode does not justify accepting a length-limited reply. Non-final completions consume their allocation and terminate unresolved without retry.
+
 Default sample sizes are development settings, not a power calculation. Small confirmation samples can remain statistically unresolved and selection may reject all patches. Freeze adequate sample sizes and budgets before reporting scientific conclusions.
 
 Controlled E4 preparation uses synthetic response fixtures with the pinned Harbor 0.25.0 parser:

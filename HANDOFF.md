@@ -28,6 +28,8 @@ Before the v3 additions, a local controlled-fault smoke completed five real Deep
 
 Native v3 state, ablation projections, and blind evaluation are covered by controlled executor tests. They still need fresh real-model multi-round validation. Raw local trajectories, dataset files, keys, private server configuration, and full research manuscript text are intentionally outside the public repository.
 
+The first real v3 attempt completed baseline EVAL and one diagnostic task, then terminated unresolved because the Coding response hit its completion cap and returned truncated JSON. It reached no confirmation or completed round. Two task executions and one Coding request consumed 12 of 33 reserved units; terminal resume and owned-resource cleanup were verified. See `docs/validation/native-v3-first-attempt.json`. A separate synthetic API preflight accepted the explicit reasoning-disabled JSON profile; it is not native multi-round evidence. New plans can freeze these optional controls via `coding_request`; old attempts remain terminal and are not retried or upgraded.
+
 ## Remaining research work — do not relabel as complete
 
 1. **E1:** official AutoSaddler integration is absent. `LocalityHeuristic` is a named development control, never AutoSaddler. See `AUTOSADDLER_INTEGRATION.md` for the inspected upstream pin and exact API boundary. Implement the actual optimizer integration before reporting the requested comparison. No full TB2, GAIA2, or SWE-Bench Pro main-experiment table exists.

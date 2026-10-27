@@ -310,6 +310,19 @@ class SourceOptimizationTests(unittest.TestCase):
         self.assertEqual(claim['bridge'],'UNBRIDGED')
         self.assertNotIn('next_targets',claim)
 
+    def test_optimizer_request_profile_reaches_each_frozen_diagnostic_child(self):
+        self.plan['coding_request'] = {'reasoning':{'enabled':False},'response_format':{'type':'json_object'}}
+        self.llm.complete.side_effect = None
+        self.llm.complete.return_value = ('{"actions":[],"mechanisms":[]}',
+            {'cost':.001,'prompt_tokens':3,'completion_tokens':20,'_completion':{'finish_reason':'stop'}})
+        self.assertEqual(self.run_pipeline()['status'],'OPTIMIZATION_COMPLETE')
+        for call in self.llm.complete.call_args_list:
+            self.assertEqual(call.kwargs['request_options'],self.plan['coding_request'])
+        self.plan['coding_request']['reasoning']['enabled'] = True
+        with self.assertRaisesRegex(ValueError,'changed on resume'):
+            self.run_pipeline()
+        self.assertEqual(self.llm.complete.call_count,2)
+
     def test_native_retained_action_survives_empty_proposal_and_mid_round_recovery(self):
         rows = copy.deepcopy(self.rounds)
         for row in rows:

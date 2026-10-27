@@ -83,6 +83,14 @@ class NativeExperimentPreparationTests(unittest.TestCase):
         self.assertEqual(self.prepare(replicates=(0,)),expected)
         self.assertEqual(before,{p.name:p.read_bytes() for p in (self.out/'plans').iterdir()})
 
+    def test_suite_freezes_the_same_optimizer_request_controls_in_every_condition(self):
+        self.profile = replace(self.profile,coding_request={'reasoning':{'enabled':False},
+            'response_format':{'type':'json_object'}})
+        manifest = self.prepare(replicates=(0,))
+        for entry in manifest['entries']:
+            plan = json.loads((self.out/entry['plan']).read_text(encoding='utf-8'))
+            self.assertEqual(plan['coding_request'],self.profile.coding_request)
+
     def test_capacity_failure_occurs_before_output_or_registry_creation(self):
         self.profile = replace(self.profile,rounds=10)
         with self.assertRaisesRegex(ValueError,'INSUFFICIENT_DISTINCT_TASKS'):

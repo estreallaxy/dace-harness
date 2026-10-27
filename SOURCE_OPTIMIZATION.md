@@ -29,6 +29,9 @@ plan = make_optimization_plan(
     study_binding, runtime_lock,
     mechanism_cap=4, action_cap=4, intervention_cap=2,
     alpha=.05, coding_max_tokens=12000, level='C5',
+    # 可选且必须预先冻结；不传时沿用供应商原默认。
+    # coding_request={'reasoning':{'enabled':False},
+    #                 'response_format':{'type':'json_object'}},
     # 可选：eval_tasks 必须来自研究中独立的 EVAL 角色。
     # eval_tasks=['blind-evaluation-task'],
 )
@@ -61,6 +64,10 @@ python tools/run_source_optimization.py --plan D:/path/to/plan.json --output D:/
 - 若提供 `eval_tasks`，额外预留基线及每轮结束时各一次完整评估，共 `(轮数+1)*N_eval`；所有检查点使用同一事先冻结的EVAL样本。优化器不会读取其奖励、轨迹或聚合分数；重复检查点不是新的独立样本。摘要分别列优化与评估支出。
 
 这些预算是执行/请求成本单位，不是美元或 token 上限。`execution_usage` 与 `optimizer_usage` 分别读取子账本的供应商费用；任一字段缺失时相应总费用保持未知。外层镜像预算仅用于总额度审计，不能与子阶段执行费用相加。
+
+`coding_request` 将 Coding 请求的推理控制和 JSON 模式写入优化计划及每份诊断子计划。允许 `reasoning.enabled`（布尔值）、或小于完整 completion 上限的 `reasoning.max_tokens`；禁用推理时不能同时指定推理预算。`response_format` 仅允许 `{'type':'json_object'}`。这不是增加预算或重试次数，且只作用于 Coding 模型，不改变任务 agent 的模型参数。各对照须冻结相同配置。
+
+JSON 模式不替代本地 schema/源码验证，也不保证回复不会截断。供应商返回非 `stop` 的结束原因时，即使正文恰好可解析也终止为 `IncompleteCodingResponse`，保留实际 usage，不自动补全或重试。原请求没有冻结这些控制时，不能恢复后临时加入。供应商是否支持并执行这些控制须先验证；`reasoning.exclude` 仅控制返回内容，不是禁用推理的方式。协议字段依据 [OpenRouter reasoning 文档](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens)。
 
 ## 恢复与证据
 

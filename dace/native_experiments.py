@@ -16,6 +16,7 @@ from .core import digest
 from .runtime_lock import verify_runtime_lock
 from .source_optimization import make_optimization_plan,run_optimization,validate_optimization_plan
 from .task_registry import TaskRegistry
+from .coding_request import validate_coding_request
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class NativeProfile:
     coding_max_tokens: int = 12000
     partition_seed: int = 0
     family_mode: str = 'metadata-category'
+    coding_request: dict | None = None
 
     def __post_init__(self):
         for name in ('rounds','diagnostic_tasks','confirmation_tasks','selection_tasks',
@@ -39,6 +41,7 @@ class NativeProfile:
             raise ValueError('Freeze the partition seed and bounded coding profile')
         if self.family_mode not in ('metadata-category','aggregate'):
             raise ValueError('Freeze metadata-category or explicit aggregate family grouping')
+        validate_coding_request(self.coding_request,self.coding_max_tokens)
 
 
 def native_conditions(experiments=('e2','e3'),interventions=(1,2,4),mechanisms=(2,4,8)):
@@ -154,7 +157,7 @@ def prepare_native_suite(parent,dataset,command,model,runtime_lock,output,*,
                 plan = make_optimization_plan(parent,rows,design['dataset'],command,model,study,runtime_lock,
                     mechanism_cap=spec['mechanism_cap'],intervention_cap=spec['intervention_cap'],
                     action_cap=profile.action_cap,coding_max_tokens=profile.coding_max_tokens,
-                    level=spec['level'],eval_tasks=design['eval_tasks'])
+                    level=spec['level'],eval_tasks=design['eval_tasks'],coding_request=profile.coding_request)
                 # IDs affect task ordering only; no claim about hosted-model seeds.
                 plan['replicate_id'] = replicate
                 plan['suite_condition'] = key

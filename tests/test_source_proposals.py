@@ -177,6 +177,27 @@ class CodingRequestTests(unittest.TestCase):
         self.assertEqual(responses[0]['payload']['usage']['cost'],.01)
         self.assertEqual(self.ledger.events[-1]['kind'],'SOURCE_AGENT_FAILED')
 
+    def test_length_limited_response_is_rejected_even_if_its_json_is_parseable(self):
+        self.llm.complete.return_value = (json.dumps(proposal()),
+            {'cost':.01,'_completion':{'finish_reason':'length'}})
+        from dace.coding_request import IncompleteCodingResponse
+        with self.assertRaises(IncompleteCodingResponse):
+            self.request()
+        self.llm.complete.assert_called_once()
+        self.assertEqual(self.budget.spent,10)
+        self.assertFalse(any(e['kind']=='SOURCE_AGENT_PROPOSAL' for e in self.ledger.events))
+        response = next(e['payload'] for e in self.ledger.events if e['kind']=='SOURCE_AGENT_RESPONSE')
+        self.assertEqual(response['usage']['cost'],.01)
+
+    def test_invalid_request_controls_are_rejected_before_charge_or_disclosure(self):
+        with self.assertRaises(ValueError):
+            self.agent.propose(self.parent,self.diagnostics,[],mechanism_cap=4,action_cap=4,
+                budget=self.budget,owner='coding',ledger=self.ledger,disclose=self.disclose,
+                coding_request={'max_tokens':999999})
+        self.assertEqual(self.budget.spent,0)
+        self.llm.complete.assert_not_called()
+        self.disclose.assert_not_called()
+
     def test_native_state_task_sources_are_disclosed_before_any_model_request(self):
         def guard(tasks,fields):
             if 'held-out' in tasks:

@@ -88,6 +88,26 @@ class SourceDiagnosticTests(unittest.TestCase):
         self.llm.complete.assert_called_once()
         self.assertEqual(hashlib.sha256((self.output/'evidence.jsonl').read_bytes()).hexdigest(),before)
 
+    def test_explicit_request_controls_are_frozen_forwarded_and_not_changed_on_resume(self):
+        self.plan['coding_request'] = {'reasoning':{'enabled':False},'response_format':{'type':'json_object'}}
+        self.assertEqual(self.run_stage()['status'],'PROPOSAL_READY')
+        self.assertEqual(self.llm.complete.call_args.kwargs['request_options'],self.plan['coding_request'])
+        self.plan['coding_request']['reasoning']['enabled'] = True
+        with self.assertRaises(ValueError):
+            self.run_stage()
+        self.llm.complete.assert_called_once()
+
+    def test_truncated_reply_finishes_unresolved_and_resume_makes_no_new_call(self):
+        self.llm.complete.return_value = ('{"actions":[],"mechanisms":[]}',
+            {'cost':.02,'prompt_tokens':3,'completion_tokens':12000,
+             '_completion':{'finish_reason':'length'}})
+        first = self.run_stage()
+        self.assertEqual(first['status'],'PROPOSAL_UNRESOLVED')
+        self.assertEqual(first['reason'],'IncompleteCodingResponse')
+        self.assertEqual(first['optimizer_usage']['cost_usd'],.02)
+        self.assertEqual(self.run_stage(),first)
+        self.llm.complete.assert_called_once()
+
     def test_interrupted_task_is_not_replaced_or_reexecuted(self):
         self.runner.side_effect = KeyboardInterrupt('controlled process interruption')
         with self.assertRaises(KeyboardInterrupt):

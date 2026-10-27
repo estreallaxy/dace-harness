@@ -26,6 +26,7 @@ from .source_selection import confirmation_certificate, make_selection_plan, run
 from .source_usage import summarize_source_usage
 from .source_evaluation import make_evaluation_plan,run_evaluation
 from .task_registry import TaskRegistry
+from .coding_request import validate_coding_request
 
 
 def _allocations(plan):
@@ -47,7 +48,7 @@ def make_optimization_plan(parent,rounds,dataset,command,model,study,runtime_loc
                            *,mechanism_cap=4,action_cap=4,intervention_cap=2,
                            alpha=.05,delta=0.,epsilon=0.,optimizer_model=None,
                            coding_max_tokens=12000,total_budget=None,
-                           predicate_protocol=PredicateProtocol(),level=None,eval_tasks=None):
+                           predicate_protocol=PredicateProtocol(),level=None,eval_tasks=None,coding_request=None):
     """Round rows fix diagnostic IDs, per-action confirmation slots and selection families."""
     plan = {'schema':'dace-source-optimization/v1','parent':asdict(parent),
         'rounds':rounds,'dataset':str(Path(dataset).resolve()),'command':command,
@@ -55,6 +56,8 @@ def make_optimization_plan(parent,rounds,dataset,command,model,study,runtime_loc
         'mechanism_cap':mechanism_cap,'action_cap':action_cap,'intervention_cap':intervention_cap,
         'alpha':alpha,'delta':delta,'epsilon':epsilon,'optimizer_model':optimizer_model or model,
         'coding_max_tokens':coding_max_tokens}
+    if coding_request is not None:
+        plan['coding_request'] = validate_coding_request(coding_request,coding_max_tokens)
     if predicate_protocol is not None:
         if not isinstance(predicate_protocol,PredicateProtocol):
             raise ValueError('Freeze a validated immutable predicate protocol')
@@ -78,6 +81,7 @@ def make_optimization_plan(parent,rounds,dataset,command,model,study,runtime_loc
 
 
 def validate_optimization_plan(plan):
+    validate_coding_request(plan.get('coding_request'),plan['coding_max_tokens'])
     if plan.get('schema') not in ('dace-source-optimization/v1','dace-source-optimization/v2','dace-source-optimization/v3'):
         raise ValueError('Unknown source optimization protocol')
     if plan['schema'].endswith('/v3'):
@@ -306,6 +310,8 @@ def run_optimization(plan,output,agent=None):
                 # versioned claims and their proposed next targets are exposed.
                 view.pop('proofs')
                 options = {'level':plan['level'],'state_context':view}
+            if 'coding_request' in plan:
+                options['coding_request'] = plan['coding_request']
             round_proofs = set(state.proofs) if state is not None else set()
             diag_plan = make_diagnostic_plan(parent,row['diagnostic'],plan['dataset'],plan['command'],
                 plan['model'],plan['study'],plan['runtime_lock'],plan['mechanism_cap'],plan['action_cap'],
