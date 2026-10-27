@@ -1,0 +1,79 @@
+{
+  "kind": "controlled-source-fault integration smoke",
+  "benchmark": "Terminal-Bench 2.0",
+  "model": "deepseek/deepseek-v4.1-flash",
+  "protocol": "frozen legacy v1 observed-pattern compatibility",
+  "formal_benchmark_result": false,
+  "native_v3_validation": false,
+  "budget": {
+    "total": 15,
+    "spent": 15,
+    "locks": {}
+  },
+  "no_call_terminal_resume_verified": true,
+  "executions": [
+    {
+      "task": "cancel-async-tasks",
+      "condition": "baseline",
+      "reward": 0.0,
+      "boundary": {
+        "command_batch_valid": true,
+        "response_parse_valid": false,
+        "raw_response_parse_valid": true
+      }
+    },
+    {
+      "task": "cancel-async-tasks",
+      "condition": "candidate",
+      "reward": 0.0,
+      "boundary": {
+        "terminal_dispatch_completed": true,
+        "raw_response_parse_valid": true,
+        "command_batch_valid": true,
+        "response_parse_valid": true
+      }
+    },
+    {
+      "task": "regex-log",
+      "condition": "baseline",
+      "reward": 0.0,
+      "boundary": {
+        "response_parse_valid": false,
+        "command_batch_valid": true,
+        "raw_response_parse_valid": false
+      }
+    },
+    {
+      "task": "fix-git",
+      "condition": "baseline",
+      "reward": 0.0,
+      "boundary": {
+        "raw_response_parse_valid": true,
+        "command_batch_valid": true,
+        "response_parse_valid": false
+      }
+    },
+    {
+      "task": "fix-git",
+      "condition": "candidate",
+      "reward": 1.0,
+      "boundary": {
+        "command_batch_valid": true,
+        "raw_response_parse_valid": true,
+        "terminal_dispatch_completed": true,
+        "response_parse_valid": true
+      }
+    }
+  ],
+  "optimization_cost_usd_openrouter_recorded": 0.002530848,
+  "execution_cost_usd_harbor_recorded": 0.070839078,
+  "promotion": false,
+  "selection_tasks": 1,
+  "notes": [
+    "Explicitly injected known response-transform fault.",
+    "A single selection task did not pass the frozen promotion bound.",
+    "Harbor costs were not reconciled against provider billing.",
+    "Raw local trajectories and machine-specific paths are not part of the public payload.",
+    "Current native v3 state/evaluation code was implemented after this run; this smoke does not validate those additions."
+  ]
+}

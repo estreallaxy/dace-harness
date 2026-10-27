@@ -1,0 +1,2 @@
+# Optional real Terminal-Bench execution runtime; install in a dedicated D: virtual environment.
+harbor==0.25.0

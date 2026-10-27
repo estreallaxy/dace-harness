@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-27",
+  "scope": "current source, local Windows, official local task-ID dataset available",
+  "python": "3.12.10",
+  "os": "Windows",
+  "tests": 310,
+  "skipped": 0,
+  "status": "PASS",
+  "seconds": 261.494,
+  "formal_benchmark_result": false,
+  "note": "Controlled/native-fixture tests are not new real-model benchmark runs."
+}
